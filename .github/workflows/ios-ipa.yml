@@ -9,6 +9,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Move files to root if in subfolder
+        run: |
+          if [ ! -f package.json ]; then
+            SUBDIR=$(find . -maxdepth 2 -mindepth 2 -name package.json | head -n 1 | xargs dirname)
+            if [ -n "$SUBDIR" ]; then
+              echo "Moving files from $SUBDIR to main folder..."
+              mv "$SUBDIR"/* .
+              mv "$SUBDIR"/.* . 2>/dev/null || true
+            fi
+          fi
+          ls -la package.json
+
       - uses: oven-sh/setup-bun@v2
         with:
           bun-version: latest
