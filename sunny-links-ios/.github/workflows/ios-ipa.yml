@@ -1,0 +1,61 @@
+name: Build iPhone .ipa
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "cap/**"
+      - "public/**"
+      - "ios/**"
+      - "package.json"
+      - "bun.lock"
+      - "capacitor.config.ts"
+      - "vite.cap.config.ts"
+
+jobs:
+  ipa:
+    # GitHub's free macOS machines. Free on public repos; billed per minute on private ones.
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install packages
+        run: bun install
+
+      - name: Build the game bundle
+        run: bun run build:cap
+
+      - name: Copy the game into the iPhone project + install native pods
+        run: bunx cap sync ios
+
+      - name: Build the app without signing
+        run: >
+          xcodebuild
+          -workspace ios/App/App.xcworkspace
+          -scheme App
+          -configuration Release
+          -destination 'generic/platform=iOS'
+          -derivedDataPath ios/App/build
+          CODE_SIGNING_ALLOWED=NO
+          CODE_SIGNING_REQUIRED=NO
+          CODE_SIGN_IDENTITY=""
+          build
+
+      - name: Package the .ipa
+        run: |
+          mkdir -p payload/Payload
+          cp -R ios/App/build/Build/Products/Release-iphoneos/App.app payload/Payload/
+          cd payload && zip -qry ../SunnyLinks.ipa Payload
+          ls -la ../SunnyLinks.ipa
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SunnyLinks-ipa
+          path: SunnyLinks.ipa
+          retention-days: 30
